@@ -61,8 +61,12 @@ const applicationEvents: TrendEventChartEvent[] = [
     color: "var(--metric-humidity)",
     title: "Foliar feed",
     subtitle: "River Bend",
-    meta: "3.5 ha · M. Ortiz",
-    details: ["Calcium blend · 2.4 L/ha", "Seaweed extract · 1.2 L/ha"],
+    rows: [
+      { label: "Area", value: "3.5 ha" },
+      { label: "Operator", value: "M. Ortiz" },
+      { label: "Calcium blend", value: "2.4 L/ha" },
+      { label: "Seaweed extract", value: "1.2 L/ha" },
+    ],
   },
   {
     id: "evt-pesticide",
@@ -70,8 +74,11 @@ const applicationEvents: TrendEventChartEvent[] = [
     color: "var(--metric-temperature)",
     title: "Pesticide",
     subtitle: "North Slope",
-    meta: "5.1 ha · K. Foster",
-    details: ["Copper hydroxide · 1.8 kg/ha"],
+    rows: [
+      { label: "Area", value: "5.1 ha" },
+      { label: "Operator", value: "K. Foster" },
+      { label: "Copper hydroxide", value: "1.8 kg/ha" },
+    ],
   },
   {
     id: "evt-irrigation",
@@ -79,8 +86,11 @@ const applicationEvents: TrendEventChartEvent[] = [
     color: "var(--metric-soil)",
     title: "Irrigation correction",
     subtitle: "Orchard East",
-    meta: "4.2 ha · T. Huang",
-    details: ["Pulse correction · 18 min"],
+    rows: [
+      { label: "Area", value: "4.2 ha" },
+      { label: "Operator", value: "T. Huang" },
+      { label: "Pulse correction", value: "18 min" },
+    ],
   },
 ];
 

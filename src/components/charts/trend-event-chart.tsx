@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "../../lib/cn";
 
@@ -33,6 +34,11 @@ export type TrendEventChartEvent = {
   title: string;
   subtitle?: string;
   meta?: string;
+  rows?: readonly {
+    label: string;
+    value: string;
+  }[];
+  note?: string;
   details?: readonly string[];
 };
 
@@ -51,11 +57,6 @@ type ChartPoint = {
   x: number;
   y: number;
 };
-
-type HoverState = {
-  activeIndex: number;
-  mode: "series" | "event";
-} | null;
 
 const defaultTimestampFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -131,6 +132,14 @@ function buildTickIndexes(length: number, desiredTickCount: number) {
   return Array.from(indexes).sort((left, right) => left - right);
 }
 
+const tooltipGlassStyle: React.CSSProperties = {
+  background:
+    "linear-gradient(180deg, color-mix(in oklab, var(--popover) 72%, transparent), color-mix(in oklab, var(--card) 68%, transparent))",
+  backdropFilter: "blur(28px) saturate(145%)",
+  WebkitBackdropFilter: "blur(28px) saturate(145%)",
+  boxShadow: "var(--mote-surface-shadow), var(--mote-glass-highlight)",
+};
+
 function useMeasuredWidth<T extends HTMLElement>() {
   const ref = React.useRef<T>(null);
   const [width, setWidth] = React.useState(0);
@@ -165,7 +174,9 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
 }: TrendEventChartProps<T>) {
   const gradientId = React.useId().replaceAll(":", "");
   const { ref, width: measuredWidth } = useMeasuredWidth<HTMLDivElement>();
-  const [hoverState, setHoverState] = React.useState<HoverState>(null);
+  const [activeIndex, setActiveIndex] = React.useState<number | null>(null);
+  const [containerRect, setContainerRect] = React.useState<DOMRect | null>(null);
+  const [trendHoverY, setTrendHoverY] = React.useState<number | null>(null);
 
   const dimensions = React.useMemo(
     () => ({
@@ -306,21 +317,32 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
     }, new Map<number, TrendEventChartEvent[]>());
   }, [data, events]);
 
-  const activeIndex =
-    hoverState && data[hoverState.activeIndex] ? hoverState.activeIndex : null;
-  const activeDatum = activeIndex === null ? null : data[activeIndex];
-  const activeX = activeIndex === null ? null : xPositions[activeIndex];
+  const resolvedActiveIndex =
+    activeIndex !== null && data[activeIndex] ? activeIndex : null;
+  const activeDatum = resolvedActiveIndex === null ? null : data[resolvedActiveIndex];
+  const activeX = resolvedActiveIndex === null ? null : xPositions[resolvedActiveIndex];
   const activeEvents =
-    activeIndex === null ? [] : markerGroups.get(activeIndex) ?? [];
+    resolvedActiveIndex === null ? [] : markerGroups.get(resolvedActiveIndex) ?? [];
+  const activeSeriesYPositions =
+    activeDatum === null
+      ? []
+      : resolvedSeries.flatMap((item) => {
+          const value = activeDatum[item.key];
+          return typeof value === "number" ? [yForValue(value)] : [];
+        });
   const tickIndexes = React.useMemo(
     () => buildTickIndexes(data.length, compact ? 4 : 6),
     [compact, data.length]
   );
 
   const handleMove = React.useCallback(
-    (event: React.PointerEvent<SVGRectElement>) => {
+    (event: React.PointerEvent<SVGRectElement>, region: "trend" | "event") => {
       if (data.length === 0) {
         return;
+      }
+
+      if (ref.current) {
+        setContainerRect(ref.current.getBoundingClientRect());
       }
 
       const rect = event.currentTarget.getBoundingClientRect();
@@ -329,17 +351,72 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
       const ratio = clamp((relativeX - plotLeft) / plotWidth, 0, 1);
       const index = Math.round(ratio * Math.max(data.length - 1, 0));
 
-      setHoverState({
-        activeIndex: index,
-        mode: "series",
-      });
+      setActiveIndex(index);
+      if (region === "trend") {
+        const relativeY =
+          ((event.clientY - rect.top) / Math.max(rect.height, 1)) *
+            dimensions.trendHeight +
+          trendTop;
+        setTrendHoverY(clamp(relativeY, trendTop, trendBottom));
+      } else {
+        setTrendHoverY(null);
+      }
     },
-    [data.length, dimensions.width, plotLeft, plotWidth]
+    [
+      data.length,
+      dimensions.trendHeight,
+      dimensions.width,
+      plotLeft,
+      plotWidth,
+      ref,
+      trendBottom,
+      trendTop,
+    ]
   );
 
   const handleLeave = React.useCallback(() => {
-    setHoverState(null);
+    setActiveIndex(null);
+    setTrendHoverY(null);
   }, []);
+
+  const handleMarkerEnter = React.useCallback((index: number) => {
+    if (ref.current) {
+      setContainerRect(ref.current.getBoundingClientRect());
+    }
+
+    setActiveIndex(index);
+    setTrendHoverY(null);
+  }, [ref]);
+
+  const updateContainerRect = React.useCallback(() => {
+    if (!ref.current) {
+      return;
+    }
+
+    setContainerRect(ref.current.getBoundingClientRect());
+  }, [ref]);
+
+  React.useEffect(() => {
+    updateContainerRect();
+  }, [measuredWidth, updateContainerRect]);
+
+  React.useEffect(() => {
+    if (activeIndex === null) {
+      return;
+    }
+
+    updateContainerRect();
+
+    const handleWindowUpdate = () => updateContainerRect();
+
+    window.addEventListener("resize", handleWindowUpdate);
+    window.addEventListener("scroll", handleWindowUpdate, true);
+
+    return () => {
+      window.removeEventListener("resize", handleWindowUpdate);
+      window.removeEventListener("scroll", handleWindowUpdate, true);
+    };
+  }, [activeIndex, updateContainerRect]);
 
   if (!data.length || !resolvedSeries.length) {
     return (
@@ -355,6 +432,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
   }
 
   const tooltipWidth = compact ? 244 : 324;
+  const eventTooltipWidth = compact ? 252 : 336;
   const tooltipLeft =
     activeX === null
       ? 0
@@ -363,9 +441,39 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
           10,
           Math.max(dimensions.width - tooltipWidth - 10, 10)
         );
+  const eventTooltipLeft =
+    activeX === null
+      ? 0
+      : clamp(
+          activeX - eventTooltipWidth / 2,
+          10,
+          Math.max(dimensions.width - eventTooltipWidth - 10, 10)
+        );
+  const trendTooltipAnchorY =
+    trendHoverY ??
+    (activeSeriesYPositions.length
+      ? activeSeriesYPositions.reduce((sum, value) => sum + value, 0) /
+        activeSeriesYPositions.length
+      : trendTop + dimensions.trendHeight / 2);
+  const trendTooltipTop = clamp(
+    trendTooltipAnchorY - (compact ? 60 : 96),
+    trendTop + (compact ? 4 : 6),
+    trendBottom - (compact ? 86 : 152)
+  );
+  const eventTooltipTop = dividerY + (compact ? 10 : 12);
+  const scaleX =
+    containerRect && dimensions.width > 0
+      ? containerRect.width / dimensions.width
+      : 1;
+  const scaleY =
+    containerRect && totalHeight > 0 ? containerRect.height / totalHeight : 1;
 
   return (
-    <div ref={ref} className={cn("relative w-full select-none", className)}>
+    <div
+      ref={ref}
+      className={cn("relative w-full select-none", className)}
+      onPointerLeave={handleLeave}
+    >
       <svg
         viewBox={`0 0 ${dimensions.width} ${totalHeight}`}
         className="h-auto w-full overflow-visible"
@@ -401,6 +509,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
               x2={plotRight}
               y1={y}
               y2={y}
+              pointerEvents="none"
               stroke="currentColor"
               strokeDasharray="4 8"
               opacity={0.14}
@@ -413,6 +522,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
           x2={plotRight}
           y1={dividerY}
           y2={dividerY}
+          pointerEvents="none"
           stroke="currentColor"
           opacity={0.16}
         />
@@ -421,6 +531,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
           x2={plotRight}
           y1={eventCenterY}
           y2={eventCenterY}
+          pointerEvents="none"
           stroke="currentColor"
           strokeDasharray="4 8"
           opacity={0.14}
@@ -430,6 +541,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
           <path
             key={`${item.key}-area`}
             d={item.areaPath}
+            pointerEvents="none"
             fill={`url(#${gradientId}-${item.key})`}
           />
         ))}
@@ -439,12 +551,33 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
             key={`${item.key}-line`}
             d={item.linePath}
             fill="none"
+            pointerEvents="none"
             stroke={item.color}
             strokeWidth={item.strokeWidth ?? (compact ? 2.3 : 3)}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         ))}
+
+        <rect
+          x={plotLeft}
+          y={trendTop}
+          width={plotWidth}
+          height={trendBottom - trendTop}
+          fill="transparent"
+          pointerEvents="all"
+          onPointerMove={(event) => handleMove(event, "trend")}
+        />
+
+        <rect
+          x={plotLeft}
+          y={dividerY}
+          width={plotWidth}
+          height={totalHeight - dividerY - 24}
+          fill="transparent"
+          pointerEvents="all"
+          onPointerMove={(event) => handleMove(event, "event")}
+        />
 
         {activeX !== null ? (
           <>
@@ -453,6 +586,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
               x2={activeX}
               y1={trendTop}
               y2={trendBottom}
+              pointerEvents="none"
               stroke="currentColor"
               opacity={0.16}
             />
@@ -461,13 +595,14 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
               x2={activeX}
               y1={dividerY}
               y2={eventCenterY}
+              pointerEvents="none"
               stroke="currentColor"
               opacity={0.16}
             />
           </>
         ) : null}
 
-        {activeDatum && activeIndex !== null
+        {activeDatum && resolvedActiveIndex !== null
           ? pointsBySeries.map((item) => {
               const value = activeDatum[item.key];
 
@@ -476,16 +611,16 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
               }
 
               return (
-                <g key={`${item.key}-active`}>
+                <g key={`${item.key}-active`} pointerEvents="none">
                   <circle
-                    cx={xPositions[activeIndex]}
+                    cx={xPositions[resolvedActiveIndex]}
                     cy={yForValue(value)}
                     r={compact ? 5.5 : 6.6}
                     fill={item.color}
                     opacity={0.18}
                   />
                   <circle
-                    cx={xPositions[activeIndex]}
+                    cx={xPositions[resolvedActiveIndex]}
                     cy={yForValue(value)}
                     r={compact ? 3.4 : 4.6}
                     fill={item.color}
@@ -504,25 +639,22 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
 
           return group.map((event, markerIndex) => {
             const y = eventCenterY + startOffset + markerIndex * (compact ? 12 : 16);
-            const isActive =
-              hoverState?.mode === "event" && activeIndex === index;
+            const isActive = resolvedActiveIndex === index;
 
             return (
-              <g key={event.id}>
+              <g key={event.id} onPointerEnter={() => handleMarkerEnter(index)}>
                 <circle
                   cx={x}
                   cy={y}
                   r={compact ? 9 : 11}
                   fill="transparent"
                   pointerEvents="all"
-                  onPointerEnter={() =>
-                    setHoverState({ activeIndex: index, mode: "event" })
-                  }
                 />
                 <circle
                   cx={x}
                   cy={y}
                   r={compact ? 4.4 : 5.2}
+                  pointerEvents="none"
                   fill={event.color}
                   stroke={isActive ? "var(--background)" : "none"}
                   strokeWidth={isActive ? 2.2 : 0}
@@ -537,6 +669,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
             key={`tick-${data[index].timestamp}`}
             x={xPositions[index]}
             y={axisY}
+            pointerEvents="none"
             fill="currentColor"
             opacity={0.52}
             fontSize={compact ? 11 : 12}
@@ -545,106 +678,144 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
             {formatXAxisLabel(data[index].timestamp, index)}
           </text>
         ))}
-
-        <rect
-          x={plotLeft}
-          y={trendTop}
-          width={plotWidth}
-          height={eventCenterY - trendTop + 20}
-          fill="transparent"
-          pointerEvents="all"
-          onPointerMove={handleMove}
-          onPointerLeave={handleLeave}
-        />
       </svg>
 
-      {activeDatum && activeX !== null ? (
-        <div
-          className="pointer-events-none absolute top-2 z-10"
-          style={{ left: tooltipLeft, width: tooltipWidth }}
-        >
-          {hoverState?.mode === "event" && activeEvents.length > 0 ? (
-            <div className="mote-glass-panel-soft rounded-[28px] border border-border/55 bg-card/78 p-4 text-sm text-popover-foreground shadow-surface backdrop-blur-2xl">
-              <p className="mb-3 font-heading text-lg leading-none text-foreground">
-                {formatTimestamp(activeDatum.timestamp)}
-              </p>
-              <div className="space-y-3">
-                {activeEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="rounded-2xl border border-border/35 bg-background/18 p-3"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span
-                        className="mt-1 size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: event.color }}
-                      />
-                      <div className="min-w-0 space-y-1">
-                        <p className="font-medium text-foreground">{event.title}</p>
-                        {event.subtitle ? (
-                          <p className="text-muted-foreground">{event.subtitle}</p>
-                        ) : null}
-                        {event.meta ? (
-                          <p className="text-caption text-muted-foreground">
-                            {event.meta}
-                          </p>
-                        ) : null}
-                        {event.details?.length ? (
-                          <div className="space-y-1 pt-1 text-caption text-muted-foreground">
-                            {event.details.map((detail) => (
-                              <p key={`${event.id}-${detail}`}>{detail}</p>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
+      {activeDatum &&
+      activeX !== null &&
+      containerRect &&
+      typeof document !== "undefined"
+        ? createPortal(
+            <>
+              <div
+                className="pointer-events-none fixed left-0 top-0 z-[70] transition-[transform,opacity,filter] duration-[340ms] ease-[cubic-bezier(0.16,0.84,0.24,1)] will-change-transform"
+                style={{
+                  width: tooltipWidth,
+                  opacity: 1,
+                  transform: `translate3d(${containerRect.left + tooltipLeft * scaleX}px, ${containerRect.top + trendTooltipTop * scaleY}px, 0)`,
+                }}
+              >
+                <div
+                  className="rounded-[30px] border border-border/55 p-4 text-sm text-popover-foreground"
+                  style={tooltipGlassStyle}
+                >
+                  <p className="mb-3 font-heading text-lg leading-none text-foreground">
+                    {formatTimestamp(activeDatum.timestamp)}
+                  </p>
+                  <div className="space-y-2.5">
+                    {resolvedSeries.map((item) => {
+                      const value = activeDatum[item.key];
+
+                      if (typeof value !== "number") {
+                        return null;
+                      }
+
+                      const formattedValue = item.valueFormatter
+                        ? item.valueFormatter(value)
+                        : formatNumber(value);
+
+                      return (
+                        <div
+                          key={item.key}
+                          className="flex items-center justify-between gap-4"
+                        >
+                          <span className="flex min-w-0 items-center gap-2.5 text-[15px] text-muted-foreground">
+                            <span
+                              className="size-3 shrink-0 rounded-full"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="truncate">
+                              {item.label}
+                              {item.unit ? ` (${item.unit})` : ""}
+                            </span>
+                          </span>
+                          <span className="font-heading text-xl leading-none text-foreground">
+                            {formattedValue}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="pointer-events-none fixed left-0 top-0 z-[70] transition-[transform,opacity,filter] duration-[340ms] ease-[cubic-bezier(0.16,0.84,0.24,1)] will-change-transform"
+                style={{
+                  width: eventTooltipWidth,
+                  opacity: activeEvents.length > 0 ? 1 : 0,
+                  transform: `translate3d(${containerRect.left + eventTooltipLeft * scaleX}px, ${containerRect.top + eventTooltipTop * scaleY}px, 0)`,
+                }}
+              >
+                <div
+                  className="rounded-[30px] border border-border/55 p-4 text-sm text-popover-foreground"
+                  style={tooltipGlassStyle}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-4">
+                    <p className="font-heading text-lg leading-none text-foreground">
+                      {formatTimestamp(activeDatum.timestamp)}
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      {activeEvents.map((event) => (
+                        <span
+                          key={`${event.id}-header-dot`}
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: event.color }}
+                        />
+                      ))}
                     </div>
                   </div>
-                ))}
+                    <div className="space-y-3">
+                      {activeEvents.map((event, index) => (
+                        <div
+                          key={event.id}
+                          className="grid gap-3"
+                        >
+                          <div className="space-y-2.5">
+                            <div className="flex items-start justify-between gap-4">
+                              <span className="text-[15px] text-muted-foreground">
+                                {event.title}
+                              </span>
+                              <span className="text-right font-medium text-foreground">
+                                {event.subtitle ?? event.meta ?? ""}
+                              </span>
+                            </div>
+                            {(event.rows ?? []).map((row) => (
+                              <div
+                                key={`${event.id}-${row.label}-${row.value}`}
+                                className="flex items-start justify-between gap-4"
+                              >
+                                <span className="text-[15px] text-muted-foreground">
+                                  {row.label}
+                                </span>
+                                <span className="text-right font-medium text-foreground">
+                                  {row.value}
+                                </span>
+                              </div>
+                            ))}
+                            {event.note ? (
+                              <p className="pt-1 text-caption text-muted-foreground">
+                                {event.note}
+                              </p>
+                            ) : event.details?.length ? (
+                              <div className="space-y-1 pt-1 text-caption text-muted-foreground">
+                                {event.details.map((detail) => (
+                                  <p key={`${event.id}-${detail}`}>{detail}</p>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                          {index < activeEvents.length - 1 ? (
+                            <div className="border-t border-border/25" />
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="mote-glass-panel-soft rounded-[30px] border border-border/55 bg-card/76 p-4 text-sm text-popover-foreground shadow-surface backdrop-blur-2xl">
-              <p className="mb-3 font-heading text-[clamp(1.25rem,2vw,1.9rem)] leading-none text-foreground">
-                {formatTimestamp(activeDatum.timestamp)}
-              </p>
-              <div className="space-y-2.5">
-                {resolvedSeries.map((item) => {
-                  const value = activeDatum[item.key];
-
-                  if (typeof value !== "number") {
-                    return null;
-                  }
-
-                  const formattedValue = item.valueFormatter
-                    ? item.valueFormatter(value)
-                    : formatNumber(value);
-
-                  return (
-                    <div
-                      key={item.key}
-                      className="flex items-center justify-between gap-4"
-                    >
-                      <span className="flex min-w-0 items-center gap-2.5 text-[15px] text-muted-foreground">
-                        <span
-                          className="size-3 shrink-0 rounded-full"
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="truncate">
-                          {item.label}
-                          {item.unit ? ` (${item.unit})` : ""}
-                        </span>
-                      </span>
-                      <span className="font-heading text-xl leading-none text-foreground">
-                        {formattedValue}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : null}
+            </>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
