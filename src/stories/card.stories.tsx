@@ -25,7 +25,7 @@ type Story = StoryObj<typeof meta>;
 export const Overview: Story = {
   render: () => (
     <Card className="max-w-xl rounded-panel bg-card/90 shadow-surface backdrop-blur-xl">
-      <CardHeader className="border-b border-border/60">
+      <CardHeader>
         <CardTitle>Greenhouse north cluster</CardTitle>
         <CardDescription>
           Environmental telemetry summary for the last irrigation cycle.

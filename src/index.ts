@@ -9,8 +9,14 @@ export {
   CardHeader,
   CardTitle,
 } from "./components/ui/card";
+export {
+  TrendEventChart,
+  type TrendEventChartEvent,
+  type TrendEventChartSeries,
+} from "./components/charts/trend-event-chart";
 export { Input } from "./components/ui/input";
 export { Label } from "./components/ui/label";
+export { Select } from "./components/ui/select";
 export { Skeleton } from "./components/ui/skeleton";
 export {
   Table,
