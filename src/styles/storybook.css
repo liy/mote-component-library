@@ -1,0 +1,13 @@
+@import "mote-design-system/tailwind.css";
+
+@source "../**/*.ts";
+@source "../**/*.tsx";
+@source "../**/*.mdx";
+
+body {
+  background: transparent;
+}
+
+#storybook-root {
+  min-height: 100vh;
+}
