@@ -695,8 +695,8 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                 }}
               >
                 <div
-                  className="rounded-[30px] border border-border/55 p-4 text-sm text-popover-foreground"
-                  style={tooltipGlassStyle}
+                  className="border border-border/55 p-4 text-sm text-popover-foreground"
+                  style={{ ...tooltipGlassStyle, borderRadius: "var(--radius-panel)" }}
                 >
                   <p className="mb-3 font-heading text-lg leading-none text-foreground">
                     {formatTimestamp(activeDatum.timestamp)}
@@ -747,8 +747,8 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                 }}
               >
                 <div
-                  className="rounded-[30px] border border-border/55 p-4 text-sm text-popover-foreground"
-                  style={tooltipGlassStyle}
+                  className="border border-border/55 p-4 text-sm text-popover-foreground"
+                  style={{ ...tooltipGlassStyle, borderRadius: "var(--radius-panel)" }}
                 >
                   <div className="mb-3 flex items-start justify-between gap-4">
                     <p className="font-heading text-lg leading-none text-foreground">
