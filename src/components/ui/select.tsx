@@ -136,7 +136,7 @@ function Select({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "flex h-11 w-full items-center justify-between rounded-[0.75rem] bg-popover/85 px-3.5 text-left text-sm text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--border)_82%,transparent)] backdrop-blur-xl outline-none transition focus-visible:ring-3 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+          "flex h-11 w-full items-center justify-between rounded-[0.75rem] border border-border/70 bg-input px-3.5 text-left text-sm text-foreground backdrop-blur-xl outline-none transition focus-visible:border-primary/60 focus-visible:ring-3 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
           className
         )}
         {...buttonSafeProps(props)}
