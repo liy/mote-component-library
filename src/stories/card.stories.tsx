@@ -24,7 +24,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Overview: Story = {
   render: () => (
-    <Card className="max-w-xl rounded-panel bg-card/90 shadow-surface backdrop-blur-xl">
+    <Card className="max-w-xl">
       <CardHeader>
         <CardTitle>Greenhouse north cluster</CardTitle>
         <CardDescription>
@@ -63,7 +63,7 @@ export const Overview: Story = {
 
 export const Compact: Story = {
   render: () => (
-    <Card size="sm" className="max-w-sm rounded-panel bg-card/90 shadow-surface backdrop-blur-xl">
+    <Card size="sm" className="max-w-sm">
       <CardHeader>
         <CardTitle>pH drift</CardTitle>
         <CardDescription>Nutrient solution trend exceeded threshold.</CardDescription>

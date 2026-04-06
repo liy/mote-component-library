@@ -117,7 +117,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Overview: Story = {
   render: (args) => (
-    <Card className="max-w-6xl rounded-frame bg-card/88 shadow-frame backdrop-blur-xl">
+    <Card className="max-w-6xl">
       <CardHeader>
         <CardTitle>Telemetry + application timeline</CardTitle>
         <CardDescription>
@@ -136,7 +136,7 @@ export const Compact: Story = {
     compact: true,
   },
   render: (args) => (
-    <Card className="max-w-4xl rounded-panel bg-card/88 shadow-surface backdrop-blur-xl">
+    <Card className="max-w-4xl">
       <CardHeader>
         <CardTitle>Zone card preview</CardTitle>
         <CardDescription>

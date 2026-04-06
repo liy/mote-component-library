@@ -14,7 +14,7 @@ type Story = StoryObj<typeof meta>;
 
 export const LoadingCard: Story = {
   render: () => (
-    <Card className="max-w-lg rounded-panel bg-card/90 shadow-surface backdrop-blur-xl">
+    <Card className="max-w-lg">
       <CardHeader className="space-y-3">
         <Skeleton className="h-5 w-28 rounded-full" />
         <Skeleton className="h-10 w-full rounded-2xl" />
