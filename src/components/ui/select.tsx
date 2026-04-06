@@ -136,7 +136,7 @@ function Select({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "flex h-11 w-full items-center justify-between rounded-[0.75rem] border border-border/70 bg-input px-3.5 text-left text-sm text-foreground backdrop-blur-xl outline-none transition focus-visible:border-primary/60 focus-visible:ring-3 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+          "flex h-11 w-full items-center justify-between rounded-[0.75rem] border border-border/70 bg-input px-3.5 text-left text-sm text-foreground backdrop-blur-md outline-none transition focus-visible:border-primary/60 focus-visible:ring-3 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
           className
         )}
         {...buttonSafeProps(props)}
@@ -157,7 +157,7 @@ function Select({
         ? createPortal(
             <div
               ref={menuRef}
-              className="z-[100] overflow-hidden rounded-[0.75rem] bg-popover/95 p-1.5 shadow-[0_18px_50px_rgba(8,16,12,0.22)] backdrop-blur-2xl"
+              className="mote-floating-panel z-[100] overflow-hidden rounded-[0.75rem] border border-border/60 bg-popover/92 p-1.5"
               style={{
                 position: "fixed",
                 left: menuPosition.left,
