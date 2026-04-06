@@ -332,38 +332,8 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
     activeIndex !== null && data[activeIndex] ? activeIndex : null;
   const activeDatum = resolvedActiveIndex === null ? null : data[resolvedActiveIndex];
   const activeX = resolvedActiveIndex === null ? null : xPositions[resolvedActiveIndex];
-  const indexSpacing =
-    data.length > 1 ? plotWidth / (data.length - 1) : plotWidth;
-  const proximityRadius = Math.max(
-    1,
-    Math.min(
-      Math.round((compact ? 16 : 24) / indexSpacing),
-      Math.ceil(data.length * 0.025)
-    )
-  );
-
-  const nearbyEvents: { event: TrendEventChartEvent; dataIndex: number }[] = [];
-  if (resolvedActiveIndex !== null) {
-    for (const [index, group] of markerGroups) {
-      if (Math.abs(index - resolvedActiveIndex) <= proximityRadius) {
-        for (const event of group) {
-          nearbyEvents.push({ event, dataIndex: index });
-        }
-      }
-    }
-    nearbyEvents.sort((a, b) => {
-      const distA = Math.abs(a.dataIndex - resolvedActiveIndex);
-      const distB = Math.abs(b.dataIndex - resolvedActiveIndex);
-      return distA !== distB
-        ? distA - distB
-        : new Date(a.event.timestamp).getTime() -
-            new Date(b.event.timestamp).getTime();
-    });
-  }
-
-  const proximityIndices = new Set(
-    nearbyEvents.map((entry) => entry.dataIndex)
-  );
+  const activeEvents =
+    resolvedActiveIndex === null ? [] : markerGroups.get(resolvedActiveIndex) ?? [];
   const activeSeriesYPositions =
     activeDatum === null
       ? []
@@ -674,7 +644,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
 
           return group.map((event, markerIndex) => {
             const y = eventCenterY + startOffset + markerIndex * (compact ? 12 : 16);
-            const isActive = proximityIndices.has(index);
+            const isActive = resolvedActiveIndex === index;
 
             return (
               <g key={event.id} onPointerEnter={() => handleMarkerEnter(index)}>
@@ -780,7 +750,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                   })}
                 </div>
 
-                {nearbyEvents.length > 0 && (
+                {activeEvents.length > 0 && (
                   <>
                     <div className="my-3 border-t border-border/40" />
                     <div
@@ -790,70 +760,53 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                         "overflow-y-auto"
                       )}
                     >
-                      {nearbyEvents.map(({ event, dataIndex }, index) => {
-                        const prevDataIndex =
-                          index > 0
-                            ? nearbyEvents[index - 1].dataIndex
-                            : null;
-                        const showGroupTimestamp =
-                          dataIndex !== resolvedActiveIndex &&
-                          dataIndex !== prevDataIndex;
-
-                        return (
-                          <div key={event.id} className="grid gap-3">
-                            {showGroupTimestamp && (
-                              <p className="text-xs leading-tight text-muted-foreground/70">
-                                {formatTimestamp(data[dataIndex].timestamp)}
-                              </p>
-                            )}
-                            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5">
-                              <span
-                                className="mt-[0.35rem] size-2.5 shrink-0 rounded-full"
-                                style={{ backgroundColor: event.color }}
-                              />
-                              <div className="min-w-0 space-y-2.5">
-                                <div className="flex items-start justify-between gap-4">
-                                  <span className="min-w-0 text-[15px] text-muted-foreground">
-                                    {event.title}
+                      {activeEvents.map((event, index) => (
+                        <div key={event.id} className="grid gap-3">
+                          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5">
+                            <span
+                              className="mt-[0.35rem] size-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: event.color }}
+                            />
+                            <div className="min-w-0 space-y-2.5">
+                              <div className="flex items-start justify-between gap-4">
+                                <span className="min-w-0 text-[15px] text-muted-foreground">
+                                  {event.title}
+                                </span>
+                                <span className="shrink-0 text-right font-medium text-foreground">
+                                  {event.subtitle ?? event.meta ?? ""}
+                                </span>
+                              </div>
+                              {(event.rows ?? []).map((row) => (
+                                <div
+                                  key={`${event.id}-${row.label}-${row.value}`}
+                                  className="flex items-start justify-between gap-4"
+                                >
+                                  <span className="text-[15px] text-muted-foreground">
+                                    {row.label}
                                   </span>
-                                  <span className="shrink-0 text-right font-medium text-foreground">
-                                    {event.subtitle ?? event.meta ?? ""}
+                                  <span className="text-right font-medium text-foreground">
+                                    {row.value}
                                   </span>
                                 </div>
-                                {(event.rows ?? []).map((row) => (
-                                  <div
-                                    key={`${event.id}-${row.label}-${row.value}`}
-                                    className="flex items-start justify-between gap-4"
-                                  >
-                                    <span className="text-[15px] text-muted-foreground">
-                                      {row.label}
-                                    </span>
-                                    <span className="text-right font-medium text-foreground">
-                                      {row.value}
-                                    </span>
-                                  </div>
-                                ))}
-                                {event.note ? (
-                                  <p className="pt-1 text-caption text-muted-foreground">
-                                    {event.note}
-                                  </p>
-                                ) : event.details?.length ? (
-                                  <div className="space-y-1 pt-1 text-caption text-muted-foreground">
-                                    {event.details.map((detail) => (
-                                      <p key={`${event.id}-${detail}`}>
-                                        {detail}
-                                      </p>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
+                              ))}
+                              {event.note ? (
+                                <p className="pt-1 text-caption text-muted-foreground">
+                                  {event.note}
+                                </p>
+                              ) : event.details?.length ? (
+                                <div className="space-y-1 pt-1 text-caption text-muted-foreground">
+                                  {event.details.map((detail) => (
+                                    <p key={`${event.id}-${detail}`}>{detail}</p>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
-                            {index < nearbyEvents.length - 1 ? (
-                              <div className="border-t border-border/25" />
-                            ) : null}
                           </div>
-                        );
-                      })}
+                          {index < activeEvents.length - 1 ? (
+                            <div className="border-t border-border/25" />
+                          ) : null}
+                        </div>
+                      ))}
                     </div>
                   </>
                 )}
