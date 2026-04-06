@@ -177,6 +177,25 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
   const [activeIndex, setActiveIndex] = React.useState<number | null>(null);
   const [containerRect, setContainerRect] = React.useState<DOMRect | null>(null);
   const [trendHoverY, setTrendHoverY] = React.useState<number | null>(null);
+  const [tooltipHeight, setTooltipHeight] = React.useState<number | null>(null);
+  const tooltipObserverRef = React.useRef<ResizeObserver | null>(null);
+  const tooltipContentRef = React.useCallback((node: HTMLDivElement | null) => {
+    if (tooltipObserverRef.current) {
+      tooltipObserverRef.current.disconnect();
+      tooltipObserverRef.current = null;
+    }
+
+    if (node && typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(([entry]) => {
+        setTooltipHeight(
+          entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
+        );
+      });
+
+      observer.observe(node);
+      tooltipObserverRef.current = observer;
+    }
+  }, []);
 
   const dimensions = React.useMemo(
     () => ({
@@ -431,36 +450,30 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
     );
   }
 
-  const tooltipWidth = compact ? 244 : 324;
-  const eventTooltipWidth = compact ? 252 : 336;
+  const tooltipWidth = compact ? 252 : 336;
+  const spaceRight =
+    activeX === null ? 0 : dimensions.width - activeX - 18;
   const tooltipLeft =
     activeX === null
       ? 0
-      : clamp(
-          activeX + 18,
-          10,
-          Math.max(dimensions.width - tooltipWidth - 10, 10)
-        );
-  const eventTooltipLeft =
-    activeX === null
-      ? 0
-      : clamp(
-          activeX - eventTooltipWidth / 2,
-          10,
-          Math.max(dimensions.width - eventTooltipWidth - 10, 10)
-        );
-  const trendTooltipAnchorY =
+      : spaceRight >= tooltipWidth + 10
+        ? activeX + 18
+        : clamp(
+            activeX - tooltipWidth - 18,
+            10,
+            Math.max(dimensions.width - tooltipWidth - 10, 10)
+          );
+  const tooltipAnchorY =
     trendHoverY ??
     (activeSeriesYPositions.length
       ? activeSeriesYPositions.reduce((sum, value) => sum + value, 0) /
         activeSeriesYPositions.length
       : trendTop + dimensions.trendHeight / 2);
-  const trendTooltipTop = clamp(
-    trendTooltipAnchorY - (compact ? 60 : 96),
+  const tooltipTop = clamp(
+    tooltipAnchorY - (compact ? 60 : 96),
     trendTop + (compact ? 4 : 6),
-    trendBottom - (compact ? 86 : 152)
+    totalHeight - (compact ? 20 : 30)
   );
-  const eventTooltipTop = dividerY + (compact ? 10 : 12);
   const scaleX =
     containerRect && dimensions.width > 0
       ? containerRect.width / dimensions.width
@@ -685,91 +698,85 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
       containerRect &&
       typeof document !== "undefined"
         ? createPortal(
-            <>
+            <div
+              className="pointer-events-none fixed left-0 top-0 z-[70] transition-[transform,opacity,filter] duration-[340ms] ease-[cubic-bezier(0.16,0.84,0.24,1)] will-change-transform"
+              style={{
+                width: tooltipWidth,
+                opacity: 1,
+                transform: `translate3d(${containerRect.left + tooltipLeft * scaleX}px, ${containerRect.top + tooltipTop * scaleY}px, 0)`,
+              }}
+            >
               <div
-                className="pointer-events-none fixed left-0 top-0 z-[70] transition-[transform,opacity,filter] duration-[340ms] ease-[cubic-bezier(0.16,0.84,0.24,1)] will-change-transform"
+                className={cn(
+                  "overflow-hidden border border-border/55 text-sm text-popover-foreground transition-[max-height] duration-500 ease-[cubic-bezier(0.16,0.84,0.24,1)]",
+                )}
                 style={{
-                  width: tooltipWidth,
-                  opacity: 1,
-                  transform: `translate3d(${containerRect.left + tooltipLeft * scaleX}px, ${containerRect.top + trendTooltipTop * scaleY}px, 0)`,
+                  ...tooltipGlassStyle,
+                  borderRadius: "var(--radius-panel)",
+                  maxHeight: tooltipHeight != null ? tooltipHeight + 1 : undefined,
                 }}
               >
-                <div
-                  className="border border-border/55 p-4 text-sm text-popover-foreground"
-                  style={{ ...tooltipGlassStyle, borderRadius: "var(--radius-panel)" }}
-                >
-                  <p className="mb-3 font-heading text-lg leading-none text-foreground">
-                    {formatTimestamp(activeDatum.timestamp)}
-                  </p>
-                  <div className="space-y-2.5">
-                    {resolvedSeries.map((item) => {
-                      const value = activeDatum[item.key];
+                <div ref={tooltipContentRef} className={cn("p-4", compact && "p-3")}>
+                <p className="mb-3 font-heading text-lg leading-none text-foreground">
+                  {formatTimestamp(activeDatum.timestamp)}
+                </p>
 
-                      if (typeof value !== "number") {
-                        return null;
-                      }
+                <div className="space-y-2.5">
+                  {resolvedSeries.map((item) => {
+                    const value = activeDatum[item.key];
 
-                      const formattedValue = item.valueFormatter
-                        ? item.valueFormatter(value)
-                        : formatNumber(value);
+                    if (typeof value !== "number") {
+                      return null;
+                    }
 
-                      return (
-                        <div
-                          key={item.key}
-                          className="flex items-center justify-between gap-4"
-                        >
-                          <span className="flex min-w-0 items-center gap-2.5 text-[15px] text-muted-foreground">
-                            <span
-                              className="size-3 shrink-0 rounded-full"
-                              style={{ backgroundColor: item.color }}
-                            />
-                            <span className="truncate">
-                              {item.label}
-                              {item.unit ? ` (${item.unit})` : ""}
-                            </span>
+                    const formattedValue = item.valueFormatter
+                      ? item.valueFormatter(value)
+                      : formatNumber(value);
+
+                    return (
+                      <div
+                        key={item.key}
+                        className="flex items-center justify-between gap-4"
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5 text-[15px] text-muted-foreground">
+                          <span
+                            className="size-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="truncate">
+                            {item.label}
+                            {item.unit ? ` (${item.unit})` : ""}
                           </span>
-                          <span className="font-heading text-xl leading-none text-foreground">
-                            {formattedValue}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        </span>
+                        <span className="font-heading text-xl leading-none text-foreground">
+                          {formattedValue}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
 
-              <div
-                className="pointer-events-none fixed left-0 top-0 z-[70] transition-[transform,opacity,filter] duration-[340ms] ease-[cubic-bezier(0.16,0.84,0.24,1)] will-change-transform"
-                style={{
-                  width: eventTooltipWidth,
-                  opacity: activeEvents.length > 0 ? 1 : 0,
-                  transform: `translate3d(${containerRect.left + eventTooltipLeft * scaleX}px, ${containerRect.top + eventTooltipTop * scaleY}px, 0)`,
-                }}
-              >
-                <div
-                  className="border border-border/55 p-4 text-sm text-popover-foreground"
-                  style={{ ...tooltipGlassStyle, borderRadius: "var(--radius-panel)" }}
-                >
-                  <div className="mb-3 flex items-start justify-between gap-4">
-                    <p className="font-heading text-lg leading-none text-foreground">
-                      {formatTimestamp(activeDatum.timestamp)}
-                    </p>
-                    <div className="flex items-center gap-2 pt-1">
+                {activeEvents.length > 0 && (
+                  <>
+                    <div className="my-3 border-t border-border/40" />
+                    <div className="mb-2 flex items-center gap-2">
                       {activeEvents.map((event) => (
                         <span
-                          key={`${event.id}-header-dot`}
+                          key={`${event.id}-dot`}
                           className="size-2.5 shrink-0 rounded-full"
                           style={{ backgroundColor: event.color }}
                         />
                       ))}
                     </div>
-                  </div>
-                    <div className="space-y-3">
+                    <div
+                      className={cn(
+                        "space-y-3",
+                        compact ? "max-h-[200px]" : "max-h-[280px]",
+                        "overflow-y-auto"
+                      )}
+                    >
                       {activeEvents.map((event, index) => (
-                        <div
-                          key={event.id}
-                          className="grid gap-3"
-                        >
+                        <div key={event.id} className="grid gap-3">
                           <div className="space-y-2.5">
                             <div className="flex items-start justify-between gap-4">
                               <span className="text-[15px] text-muted-foreground">
@@ -806,13 +813,15 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                           </div>
                           {index < activeEvents.length - 1 ? (
                             <div className="border-t border-border/25" />
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
                 </div>
               </div>
-            </>,
+            </div>,
             document.body
           )
         : null}

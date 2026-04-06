@@ -121,7 +121,7 @@ export const Overview: Story = {
       <CardHeader>
         <CardTitle>Telemetry + application timeline</CardTitle>
         <CardDescription>
-          Hover the trend to inspect synchronized metric values, or hover the lower event markers for application context.
+          Hover any data point to see metric values and application events together in a single tooltip.
         </CardDescription>
       </CardHeader>
       <CardContent>
