@@ -441,7 +441,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
     return (
       <div
         className={cn(
-          "flex min-h-[220px] items-center justify-center rounded-panel border border-dashed border-border/70 bg-secondary/30 px-4 text-center text-sm text-muted-foreground",
+          "tabular-nums flex min-h-[220px] items-center justify-center rounded-panel border border-dashed border-border/70 bg-secondary/30 px-4 text-center text-sm text-muted-foreground",
           className
         )}
       >
@@ -484,7 +484,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
   return (
     <div
       ref={ref}
-      className={cn("relative w-full select-none", className)}
+      className={cn("tabular-nums relative w-full select-none", className)}
       onPointerLeave={handleLeave}
     >
       <svg
@@ -716,7 +716,10 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                   maxHeight: tooltipHeight != null ? tooltipHeight + 1 : undefined,
                 }}
               >
-                <div ref={tooltipContentRef} className={cn("p-4", compact && "p-3")}>
+                <div
+                  ref={tooltipContentRef}
+                  className={cn("tabular-nums p-4", compact && "p-3")}
+                >
                 <p className="mb-3 font-heading text-lg leading-none text-foreground">
                   {formatTimestamp(activeDatum.timestamp)}
                 </p>
@@ -736,11 +739,11 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                     return (
                       <div
                         key={item.key}
-                        className="flex items-center justify-between gap-4"
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4"
                       >
                         <span className="flex min-w-0 items-center gap-2.5 text-[15px] text-muted-foreground">
                           <span
-                            className="size-3 shrink-0 rounded-full"
+                            className="size-2.5 shrink-0 rounded-full"
                             style={{ backgroundColor: item.color }}
                           />
                           <span className="truncate">
@@ -748,7 +751,7 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                             {item.unit ? ` (${item.unit})` : ""}
                           </span>
                         </span>
-                        <span className="font-heading text-xl leading-none text-foreground">
+                        <span className="block min-w-[5.5ch] text-right font-heading text-xl leading-none text-foreground">
                           {formattedValue}
                         </span>
                       </div>
@@ -759,15 +762,6 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                 {activeEvents.length > 0 && (
                   <>
                     <div className="my-3 border-t border-border/40" />
-                    <div className="mb-2 flex items-center gap-2">
-                      {activeEvents.map((event) => (
-                        <span
-                          key={`${event.id}-dot`}
-                          className="size-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: event.color }}
-                        />
-                      ))}
-                    </div>
                     <div
                       className={cn(
                         "space-y-3",
@@ -777,39 +771,45 @@ export function TrendEventChart<T extends TrendEventChartDatum>({
                     >
                       {activeEvents.map((event, index) => (
                         <div key={event.id} className="grid gap-3">
-                          <div className="space-y-2.5">
-                            <div className="flex items-start justify-between gap-4">
-                              <span className="text-[15px] text-muted-foreground">
-                                {event.title}
-                              </span>
-                              <span className="text-right font-medium text-foreground">
-                                {event.subtitle ?? event.meta ?? ""}
-                              </span>
+                          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5">
+                            <span
+                              className="mt-[0.35rem] size-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: event.color }}
+                            />
+                            <div className="min-w-0 space-y-2.5">
+                              <div className="flex items-start justify-between gap-4">
+                                <span className="min-w-0 text-[15px] text-muted-foreground">
+                                  {event.title}
+                                </span>
+                                <span className="shrink-0 text-right font-medium text-foreground">
+                                  {event.subtitle ?? event.meta ?? ""}
+                                </span>
+                              </div>
+                              {(event.rows ?? []).map((row) => (
+                                <div
+                                  key={`${event.id}-${row.label}-${row.value}`}
+                                  className="flex items-start justify-between gap-4"
+                                >
+                                  <span className="text-[15px] text-muted-foreground">
+                                    {row.label}
+                                  </span>
+                                  <span className="text-right font-medium text-foreground">
+                                    {row.value}
+                                  </span>
+                                </div>
+                              ))}
+                              {event.note ? (
+                                <p className="pt-1 text-caption text-muted-foreground">
+                                  {event.note}
+                                </p>
+                              ) : event.details?.length ? (
+                                <div className="space-y-1 pt-1 text-caption text-muted-foreground">
+                                  {event.details.map((detail) => (
+                                    <p key={`${event.id}-${detail}`}>{detail}</p>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
-                            {(event.rows ?? []).map((row) => (
-                              <div
-                                key={`${event.id}-${row.label}-${row.value}`}
-                                className="flex items-start justify-between gap-4"
-                              >
-                                <span className="text-[15px] text-muted-foreground">
-                                  {row.label}
-                                </span>
-                                <span className="text-right font-medium text-foreground">
-                                  {row.value}
-                                </span>
-                              </div>
-                            ))}
-                            {event.note ? (
-                              <p className="pt-1 text-caption text-muted-foreground">
-                                {event.note}
-                              </p>
-                            ) : event.details?.length ? (
-                              <div className="space-y-1 pt-1 text-caption text-muted-foreground">
-                                {event.details.map((detail) => (
-                                  <p key={`${event.id}-${detail}`}>{detail}</p>
-                                ))}
-                              </div>
-                            ) : null}
                           </div>
                           {index < activeEvents.length - 1 ? (
                             <div className="border-t border-border/25" />
