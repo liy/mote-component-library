@@ -66,7 +66,7 @@ export const FormStack: Story = {
     <form className="max-w-md space-y-5 rounded-panel bg-card/85 p-6 shadow-surface backdrop-blur-xl">
       <div className="space-y-2">
         <Label htmlFor="site-name">Site name</Label>
-        <Input id="site-name" placeholder="Canopy West" />
+        <Input id="site-name" placeholder="Mote West" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="operator-email">Operator email</Label>

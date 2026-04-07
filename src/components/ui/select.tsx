@@ -185,10 +185,10 @@ function Select({
                       disabled={option.disabled}
                       onClick={() => commitValue(option.value)}
                       className={cn(
-                        "flex w-full items-center justify-between rounded-[0.75rem] px-3 py-2.5 text-sm transition",
+                        "flex w-full items-center justify-between rounded-[6px] px-3 py-2.5 text-sm transition-colors duration-200",
                         active
-                          ? "bg-primary/12 text-foreground"
-                          : "text-foreground/86 hover:bg-background/22",
+                          ? "bg-primary/12 text-primary font-medium"
+                          : "text-foreground/80 hover:text-primary",
                         option.disabled && "cursor-not-allowed opacity-40"
                       )}
                     >

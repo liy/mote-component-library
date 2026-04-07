@@ -275,10 +275,10 @@ export function TooltipItem({
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between rounded-[0.75rem] px-3 py-2.5 text-sm transition",
+        "flex w-full items-center justify-between rounded-[6px] px-3 py-2.5 text-sm transition-colors duration-200",
         active
-          ? "bg-primary/12 text-foreground"
-          : "text-foreground/86 hover:bg-background/22"
+          ? "bg-primary/12 text-primary font-medium"
+          : "text-foreground/80 hover:text-primary"
       )}
     >
       <div className="flex items-center gap-2.5 min-w-0">

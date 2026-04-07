@@ -37,7 +37,7 @@ export const FleetOverview: Story = {
         </TableHeader>
         <TableBody>
           <TableRow>
-            <TableCell className="font-medium">North canopy</TableCell>
+            <TableCell className="font-medium">North mote</TableCell>
             <TableCell>Greenhouse A</TableCell>
             <TableCell>92%</TableCell>
             <TableCell>
