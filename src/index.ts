@@ -20,6 +20,18 @@ export { Select } from "./components/ui/select";
 export { Skeleton } from "./components/ui/skeleton";
 export { Tooltip, TooltipItem, TooltipItemList } from "./components/ui/tooltip";
 export {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogClose,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "./components/ui/dialog";
+export {
   Table,
   TableBody,
   TableCaption,
